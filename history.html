@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <title>Medical History</title>
+
+</head>
+
+<body style="
+font-family:Arial;
+background:#eaf4ff;
+">
+
+    <div style="
+max-width:900px;
+margin:auto;
+background:white;
+padding:40px;
+border-radius:20px;
+margin-top:40px;
+">
+
+        <h1 style="
+color:#0077ff;
+text-align:center;
+">
+
+            Medical History
+
+        </h1>
+
+        <br><br>
+
+        <table border="1" width="100%" cellpadding="15">
+
+            <tr>
+
+                <th>Disease</th>
+
+                <th>BMI</th>
+
+                <th>Health Score</th>
+
+            </tr>
+
+            {% for item in records %}
+
+            <tr>
+
+                <td>{{ item.disease }}</td>
+
+                <td>{{ item.bmi }}</td>
+
+                <td>{{ item.health_score }}</td>
+
+            </tr>
+
+            {% endfor %}
+
+        </table>
+
+        <br><br>
+
+        <div style="text-align:center;">
+
+            <a href="javascript:history.back()">
+
+                <button style="
+padding:15px 30px;
+background:#0077ff;
+color:white;
+border:none;
+border-radius:10px;
+">
+
+                    Back
+
+                </button>
+
+            </a>
+
+        </div>
+
+    </div>
+
+</body>
+
+</html>
