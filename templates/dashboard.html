@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <title>CareMateAI Dashboard</title>
+
+    <style>
+        body {
+
+            font-family: Arial;
+            background: #eaf4ff;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+
+            max-width: 700px;
+            margin: auto;
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            margin-top: 80px;
+            text-align: center;
+            box-shadow: 0px 0px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+
+            color: #0077ff;
+            margin-bottom: 20px;
+        }
+
+        h2 {
+
+            color: #333;
+            margin-bottom: 30px;
+        }
+
+        button {
+
+            padding: 14px 30px;
+            background: #0077ff;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        button:hover {
+
+            background: #0056c7;
+            transform: scale(1.03);
+        }
+
+        .robot {
+
+            width: 220px;
+            margin-bottom: 20px;
+        }
+    </style>
+
+</head>
+
+<body>
+
+    <div class="container">
+
+        <img src="{{ url_for('static', filename='robot_doctor.png') }}" class="robot">
+
+        <h1>
+
+            Welcome to CareMateAI
+
+        </h1>
+
+        <h2>
+
+            Login Successful
+
+        </h2>
+
+        <a href="/health_check">
+
+            <button>
+
+                Start Health Check
+
+            </button>
+
+        </a>
+
+        <br><br>
+
+        <a href="/logout">
+
+            <button>
+
+                Logout
+
+            </button>
+
+        </a>
+
+    </div>
+
+</body>
+
+</html>
