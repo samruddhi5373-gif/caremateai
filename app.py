@@ -1,188 +1,237 @@
-from flask import Flask, render_template, request, redirect, url_for, session, send_file
-from flask_sqlalchemy import SQLAlchemy
+from flask import Flask, render_template, request, send_file, redirect
+import sqlite3
+import numpy as np
+import joblib
+
 from reportlab.pdfgen import canvas
-import io
+from reportlab.lib.pagesizes import letter
+
+# =========================
+# APP
+# =========================
 
 app = Flask(__name__)
 
-app.secret_key = "caremate_secret_key"
+# =========================
+# GLOBAL VARIABLES
+# =========================
 
-# ================= DATABASE =================
+patient_name = ""
+age = ""
+gender = ""
+disease = ""
+bmi = ""
+bmi_status = ""
+health_score = ""
+risk = ""
+medicines = ""
+advice = ""
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+latest_report = {}
 
-db = SQLAlchemy(app)
+# =========================
+# LOAD ML MODEL
+# =========================
 
-# ================= USER TABLE =================
+model = joblib.load('disease_model.pkl')
+label_encoder = joblib.load('label_encoder.pkl')
 
-class User(db.Model):
+# =========================
+# DATABASE
+# =========================
 
-    id = db.Column(db.Integer, primary_key=True)
+conn = sqlite3.connect('users.db')
+cursor = conn.cursor()
 
-    username = db.Column(
-        db.String(100),
-        unique=True
-    )
+cursor.execute('''
 
-    password = db.Column(db.String(100))
+CREATE TABLE IF NOT EXISTS users(
 
-# ================= HISTORY TABLE =================
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT,
+    password TEXT
 
-class History(db.Model):
+)
 
-    id = db.Column(db.Integer, primary_key=True)
+''')
 
-    username = db.Column(db.String(100))
+conn.commit()
+conn.close()
 
-    disease = db.Column(db.String(100))
-
-    bmi = db.Column(db.String(50))
-
-    health_score = db.Column(db.String(50))
-
-# ================= APPOINTMENT TABLE =================
-
-class Appointment(db.Model):
-
-    id = db.Column(db.Integer, primary_key=True)
-
-    username = db.Column(db.String(100))
-
-    doctor = db.Column(db.String(100))
-
-    date = db.Column(db.String(100))
-
-    time = db.Column(db.String(100))
-
-# ================= HOME =================
+# =========================
+# HOME PAGE
+# =========================
 
 @app.route('/')
 def home():
 
-    return render_template('index.html')
+    return render_template(
 
-# ================= SIGNUP =================
+        'index.html',
+
+        show_login=True
+
+    )
+
+# =========================
+# SIGNUP
+# =========================
 
 @app.route('/signup', methods=['POST'])
 def signup():
 
     username = request.form['signup_username']
-
     password = request.form['signup_password']
 
-    existing_user = User.query.filter_by(
-        username=username
-    ).first()
+    conn = sqlite3.connect('users.db')
+    cursor = conn.cursor()
+
+    cursor.execute(
+
+        "SELECT * FROM users WHERE username=?",
+
+        (username,)
+
+    )
+
+    existing_user = cursor.fetchone()
 
     if existing_user:
 
-        return "Username already exists"
+        conn.close()
 
-    new_user = User(
-        username=username,
-        password=password
+        return render_template(
+
+            'index.html',
+
+            show_signup=True
+
+        )
+
+    cursor.execute(
+
+        "INSERT INTO users(username,password) VALUES(?,?)",
+
+        (username, password)
+
     )
 
-    db.session.add(new_user)
+    conn.commit()
+    conn.close()
 
-    db.session.commit()
+    return render_template(
 
-    return redirect(url_for('home'))
+        'index.html',
 
-# ================= LOGIN =================
+        show_login=True
+
+    )
+
+# =========================
+# LOGIN
+# =========================
 
 @app.route('/login', methods=['POST'])
 def login():
 
     username = request.form['login_username']
-
     password = request.form['login_password']
 
-    user = User.query.filter_by(
-        username=username,
-        password=password
-    ).first()
+    conn = sqlite3.connect('users.db')
+    cursor = conn.cursor()
+
+    cursor.execute(
+
+        "SELECT * FROM users WHERE username=? AND password=?",
+
+        (username, password)
+
+    )
+
+    user = cursor.fetchone()
+
+    conn.close()
 
     if user:
 
-        session['user'] = username
-
         return render_template(
+
             'index.html',
-            open_page='page3'
+
+            show_patient_page=True
+
         )
 
-    return "Invalid Username or Password"
+    else:
 
-# ================= PREDICT =================
+        return render_template(
+
+            'index.html',
+
+            show_login=True
+
+        )
+
+# =========================
+# PREDICT
+# =========================
 
 @app.route('/predict', methods=['POST'])
 def predict():
 
-    # ================= PATIENT DETAILS =================
+    global patient_name
+    global age
+    global gender
+    global disease
+    global bmi
+    global bmi_status
+    global health_score
+    global risk
+    global medicines
+    global advice
+    global latest_report
+
+    # =========================
+    # PATIENT DETAILS
+    # =========================
 
     patient_name = request.form['patient_name']
 
-    age = request.form['age']
+    age = int(request.form['age'])
 
     gender = request.form['gender']
 
     weight = float(request.form['weight'])
 
-    # ================= HEIGHT =================
+    # =========================
+    # HEIGHT
+    # =========================
 
-    height = 1.6
+    height_cm = request.form.get('height_Centimeter')
 
-    height_cm = request.form.get(
-        'height_cm',
-        ''
-    ).strip()
+    feet = request.form.get('feet')
 
-    feet = request.form.get(
-        'feet',
-        ''
-    ).strip()
+    inches = request.form.get('inches')
 
-    inches = request.form.get(
-        'inches',
-        ''
-    ).strip()
+    if height_cm:
 
-    # HEIGHT FROM CM
+        height_m = float(height_cm) / 100
 
-    if height_cm != "":
+    else:
 
-        height = float(height_cm) / 100
+        feet = float(feet or 0)
 
-    # HEIGHT FROM FEET + INCHES
+        inches = float(inches or 0)
 
-    elif feet != "":
+        total_inches = (feet * 12) + inches
 
-        feet_value = float(feet)
+        height_m = total_inches * 0.0254
 
-        inches_value = float(inches) if inches != "" else 0
+    # =========================
+    # BMI
+    # =========================
 
-        total_inches = (feet_value * 12) + inches_value
-
-        height = total_inches * 0.0254
-
-    # SAFETY
-
-    if height <= 0:
-
-        height = 1.6
-
-    # ================= BMI =================
-
-    bmi = round(
-
-        weight / (height * height),
-
-        2
-    )
-
-    # ================= BMI STATUS =================
+    bmi = round(weight / (height_m ** 2), 2)
 
     if bmi < 18.5:
 
@@ -200,7 +249,9 @@ def predict():
 
         bmi_status = "Obese"
 
-    # ================= SYMPTOMS =================
+    # =========================
+    # BASIC SYMPTOMS
+    # =========================
 
     fever = int(request.form['fever'])
 
@@ -218,11 +269,82 @@ def predict():
 
     chest_pain = int(request.form['chest_pain'])
 
-    duration = int(request.form['duration'])
+    # =========================
+    # CHATBOT ANSWERS
+    # =========================
 
-    # ================= TOTAL SCORE =================
+    chatbot_text = request.form.get(
 
-    total_score = (
+        "chatbot_answers",
+
+        ""
+
+    ).lower()
+
+    # =========================
+    # SYMPTOMS ARRAY
+    # =========================
+
+    symptoms = [0] * 11
+
+    symptom_map = {
+
+    "fever": 0,
+    "cough": 1,
+    "headache": 2,
+    "vomiting": 3,
+    "fatigue": 4,
+    "breathing": 5,
+    "body pain": 6,
+    "chest pain": 7,
+    "cold": 8,
+    "stomach pain": 9,
+    "diarrhea": 10
+
+}
+
+    # =========================
+    # FILL SYMPTOMS
+    # =========================
+
+    for symptom, index in symptom_map.items():
+
+        if symptom in chatbot_text:
+
+            symptoms[index] = 1
+
+    # =========================
+    # BASIC FORM SYMPTOMS
+    # =========================
+
+    symptoms[0] = fever
+    symptoms[1] = cough
+    symptoms[2] = headache
+    symptoms[3] = vomiting
+    symptoms[4] = fatigue
+    symptoms[5] = breathing
+    symptoms[6] = body_pain
+    symptoms[7] = chest_pain
+    # =========================
+
+
+    # =========================
+    # ML PREDICTION
+    # =========================
+
+    prediction = model.predict([symptoms])
+
+    disease = label_encoder.inverse_transform(
+
+        prediction
+
+    )[0]
+
+    # =========================
+    # HEALTH SCORE
+    # =========================
+
+    symptom_total = (
 
         fever +
         cough +
@@ -232,46 +354,26 @@ def predict():
         breathing +
         body_pain +
         chest_pain
+
     )
-
-    # ================= DISEASE PREDICTION =================
-
-    if fever >= 2 and cough >= 2:
-
-        prediction = "Flu"
-
-    elif breathing >= 2 and chest_pain >= 2:
-
-        prediction = "Possible Lung Infection"
-
-    elif vomiting >= 2 and fever >= 2:
-
-        prediction = "Food Infection"
-
-    elif headache >= 2 and fatigue >= 2:
-
-        prediction = "Migraine / Stress"
-
-    else:
-
-        prediction = "General Viral Infection"
-
-    # ================= HEALTH SCORE =================
 
     health_score = max(
 
-        10,
+        100 - (symptom_total * 5),
 
-        100 - (total_score * 5)
+        20
+
     )
 
-    # ================= RISK LEVEL =================
+    # =========================
+    # RISK LEVEL
+    # =========================
 
-    if total_score <= 5:
+    if health_score > 80:
 
         risk = "Low"
 
-    elif total_score <= 12:
+    elif health_score > 50:
 
         risk = "Moderate"
 
@@ -279,281 +381,237 @@ def predict():
 
         risk = "High"
 
-    # ================= MEDICINES + ADVICE =================
-
-    if prediction == "Flu":
-
-        medicines = "Paracetamol, Vitamin C, Warm Water"
-
-        advice = "Take proper rest and drink warm fluids."
-
-    elif prediction == "Food Infection":
-
-        medicines = "ORS, Antacid, Probiotics"
-
-        advice = "Avoid outside food and stay hydrated."
-
-    elif prediction == "Migraine / Stress":
-
-        medicines = "Pain Reliever, Proper Sleep"
-
-        advice = "Reduce stress and avoid screen exposure."
-
-    elif prediction == "Possible Lung Infection":
-
-        medicines = "Steam Inhalation, Antibiotics (Doctor Advice)"
-
-        advice = "Consult doctor immediately if breathing worsens."
-
-    else:
-
-        medicines = "Multivitamins, Healthy Diet"
-
-        advice = "Maintain healthy lifestyle and hydration."
-
-    # ================= EMERGENCY ALERT =================
+    # =========================
+    # EMERGENCY CHECK
+    # =========================
 
     emergency = False
 
-    if chest_pain >= 3 or breathing >= 3:
+    if chest_pain >= 2 or breathing >= 3:
 
         emergency = True
 
-    # ================= AI HEALTH TIPS =================
+    # =========================
+    # MEDICINES
+    # =========================
 
-    if prediction == "Flu":
+    medicine_map = {
 
-        tips = [
+        'Flu': 'Paracetamol, Vitamin C',
 
-            "Drink warm water",
+        'Covid': 'Isolation, Steam, Paracetamol',
 
-            "Take vitamin C",
+        'Food Poisoning': 'ORS, Electrolytes',
 
-            "Get proper rest"
-        ]
+        'Heart Disease': 'Consult Cardiologist',
 
-    elif prediction == "Food Infection":
+        'Cold': 'Cough Syrup, Steam'
 
-        tips = [
+    }
 
-            "Avoid oily food",
+    medicines = medicine_map.get(
 
-            "Drink ORS",
+        disease,
 
-            "Eat light meals"
-        ]
+        'Consult Doctor'
 
-    elif prediction == "Migraine / Stress":
+    )
 
-        tips = [
+    # =========================
+    # ADVICE
+    # =========================
 
-            "Reduce screen time",
+    advice_map = {
 
-            "Sleep properly",
+        'Flu': 'Take proper rest and drink warm fluids.',
 
-            "Stay hydrated"
-        ]
+        'Covid': 'Isolate yourself and monitor oxygen.',
 
-    elif prediction == "Possible Lung Infection":
+        'Food Poisoning': 'Drink ORS and avoid outside food.',
 
-        tips = [
+        'Heart Disease': 'Seek medical attention immediately.',
 
-            "Avoid cold drinks",
+        'Cold': 'Take steam and stay hydrated.'
 
-            "Take steam inhalation",
+    }
 
-            "Consult a doctor"
-        ]
+    advice = advice_map.get(
 
-    else:
+        disease,
 
-        tips = [
+        'Maintain healthy lifestyle.'
 
-            "Exercise daily",
+    )
 
-            "Eat healthy food",
+    # =========================
+    # AI TIPS
+    # =========================
 
-            "Stay hydrated"
-        ]
+    tips = [
 
-    # ================= SAVE HISTORY =================
+        "Drink plenty of water",
 
-    if 'user' in session:
+        "Take proper rest",
 
-        history = History(
+        "Avoid junk food",
 
-            username=session['user'],
+        "Exercise regularly",
 
-            disease=prediction,
+        "Sleep 7-8 hours daily"
 
-            bmi=str(bmi),
+    ]
 
-            health_score=str(health_score)
+    # =========================
+    # SAVE REPORT
+    # =========================
+
+    latest_report = {
+
+        'patient_name': patient_name,
+        'age': age,
+        'gender': gender,
+        'prediction': disease,
+        'bmi': bmi,
+        'bmi_status': bmi_status,
+        'health_score': health_score,
+        'risk': risk,
+        'medicines': medicines,
+        'advice': advice
+
+    }
+
+    # =========================
+    # FINAL REPORT
+    # =========================
+
+    return render_template(
+
+    'chatbot.html',
+
+    patient_name=patient_name,
+
+    age=age,
+
+    gender=gender
+
+)
+# =========================
+# DOWNLOAD REPORT
+# =========================
+
+@app.route('/download_report')
+def download_report():
+
+    pdf_file = "medical_report.pdf"
+
+    c = canvas.Canvas(
+
+        pdf_file,
+
+        pagesize=letter
+
+    )
+
+    y = 750
+
+    c.setFont(
+
+        "Helvetica-Bold",
+
+        20
+
+    )
+
+    c.drawString(
+
+        180,
+
+        y,
+
+        "CareMateAI Report"
+
+    )
+
+    y -= 50
+
+    c.setFont(
+
+        "Helvetica",
+
+        14
+
+    )
+
+    for key, value in latest_report.items():
+
+        c.drawString(
+
+            80,
+
+            y,
+
+            f"{key}: {value}"
+
         )
 
-        db.session.add(history)
+        y -= 30
 
-        db.session.commit()
+    c.save()
 
-    # ================= RESULT =================
+    return send_file(
+
+        pdf_file,
+
+        as_attachment=True
+
+    )
+
+# =========================
+# LOGOUT
+# =========================
+
+@app.route('/logout')
+def logout():
+
+    return redirect('/')
+
+# =========================
+# RUN APP
+# =========================
+# =========================
+# FINAL REPORT PAGE
+# =========================
+
+@app.route('/final_report', methods=['GET', 'POST'])
+def final_report():
 
     return render_template(
 
         'index.html',
 
-        open_page='page5',
+        show_result=True,
 
         patient_name=patient_name,
+
         age=age,
+
         gender=gender,
-        prediction=prediction,
+
+        prediction=disease,
+
         bmi=bmi,
+
         bmi_status=bmi_status,
+
         health_score=health_score,
-        advice=advice,
+
         risk=risk,
+
         medicines=medicines,
-        emergency=emergency,
-        tips=tips
+
+        advice=advice
     )
 
-# ================= HISTORY PAGE =================
-
-@app.route('/history')
-def history():
-
-    if 'user' not in session:
-
-        return redirect(url_for('home'))
-
-    records = History.query.filter_by(
-        username=session['user']
-    ).all()
-
-    return render_template(
-        'history.html',
-        records=records
-    )
-
-# ================= APPOINTMENT PAGE =================
-
-@app.route('/appointment')
-def appointment():
-
-    if 'user' not in session:
-
-        return redirect(url_for('home'))
-
-    return render_template(
-        'appointment.html'
-    )
-
-# ================= BOOK APPOINTMENT =================
-
-@app.route('/book_appointment', methods=['POST'])
-def book_appointment():
-
-    if 'user' not in session:
-
-        return redirect(url_for('home'))
-
-    doctor = request.form['doctor']
-
-    date = request.form['date']
-
-    time = request.form['time']
-
-    appointment = Appointment(
-
-        username=session['user'],
-
-        doctor=doctor,
-
-        date=date,
-
-        time=time
-    )
-
-    db.session.add(appointment)
-
-    db.session.commit()
-
-    return """
-
-    <h1 style='font-family:Arial;text-align:center;color:#0077ff;margin-top:100px;'>
-
-    Appointment Booked Successfully
-
-    </h1>
-
-    <div style='text-align:center;margin-top:40px;'>
-
-    <a href='/'>
-
-    <button style='padding:15px 30px;background:#0077ff;color:white;border:none;border-radius:10px;'>
-
-    Back To Home
-
-    </button>
-
-    </a>
-
-    </div>
-
-    """
-
-# ================= DOWNLOAD REPORT =================
-
-@app.route('/download_report')
-def download_report():
-
-    buffer = io.BytesIO()
-
-    pdf = canvas.Canvas(buffer)
-
-    pdf.drawString(
-        200,
-        800,
-        "CareMateAI Medical Report"
-    )
-
-    pdf.drawString(
-        100,
-        760,
-        "Generated by CareMateAI"
-    )
-
-    pdf.save()
-
-    buffer.seek(0)
-
-    return send_file(
-
-        buffer,
-
-        as_attachment=True,
-
-        download_name="CareMateAI_Report.pdf",
-
-        mimetype='application/pdf'
-    )
-
-# ================= LOGOUT =================
-
-@app.route('/logout')
-def logout():
-
-    session.pop('user', None)
-
-    return redirect(url_for('home'))
-
-# ================= MAIN =================
-with app.app_context():
-    db.create_all()
 if __name__ == '__main__':
-
-    with app.app_context():
-
-        db.create_all()
 
     app.run(debug=True)

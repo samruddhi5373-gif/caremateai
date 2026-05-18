@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>CareMateAI Chatbot</title>
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial;
+            background: #eff6ff;
+        }
+
+        .chat-container {
+            width: 90%;
+            max-width: 900px;
+            margin: 30px auto;
+            background: white;
+            border-radius: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .chat-header {
+            background: #2563eb;
+            color: white;
+            padding: 20px;
+            font-size: 24px;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        #chatBox {
+            height: 500px;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f8fbff;
+        }
+
+        .bot-message {
+            background: #dbeafe;
+            padding: 15px;
+            border-radius: 18px;
+            margin-bottom: 15px;
+            width: 75%;
+            line-height: 1.6;
+        }
+
+        .user-message {
+            background: #2563eb;
+            color: white;
+            padding: 15px;
+            border-radius: 18px;
+            margin-bottom: 15px;
+            margin-left: auto;
+            width: 75%;
+            line-height: 1.6;
+        }
+
+        .typing {
+            color: #555;
+            margin-top: 10px;
+            font-style: italic;
+        }
+
+        .input-area {
+            display: flex;
+            gap: 10px;
+            padding: 20px;
+            background: white;
+        }
+
+        .input-area input {
+            flex: 1;
+            padding: 15px;
+            border-radius: 12px;
+            border: 2px solid #dbeafe;
+            font-size: 16px;
+        }
+
+        .input-area button {
+            padding: 15px 25px;
+            border: none;
+            border-radius: 12px;
+            background: #2563eb;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+        }
+    </style>
+
+</head>
+
+<body>
+
+    <div class="chat-container">
+
+        <div class="chat-header">
+
+            CareMateAI Chatbot
+
+        </div>
+
+        <div id="chatBox">
+
+            <div class="bot-message">
+
+                Hello 👋<br><br>
+
+                I am CareMateAI 💙<br><br>
+
+                Please tell me freely what symptoms or discomfort you are feeling right now 😊
+
+            </div>
+
+        </div>
+
+        <div class="input-area">
+
+            <input type="text" id="userInput" placeholder="Type your answer...">
+
+            <button onclick="sendMessage()">
+
+                Send
+
+            </button>
+
+        </div>
+
+    </div>
+
+    <script>
+
+        let step = 0;
+
+        let finished = false;
+
+        const questions = [
+
+            "Since when are you feeling this problem?",
+
+            "Are the symptoms mild, moderate or severe?",
+
+            "Do you also feel weakness or tiredness?",
+
+            "Are you sleeping properly these days? 😴",
+
+            "Are you drinking enough water daily? 💧",
+
+            "Did you take any medicine already?",
+
+            "Are your symptoms improving or getting worse?",
+
+            "Do you have stress or anxiety recently?"
+
+        ];
+
+        function addBotMessage(text) {
+
+            let chatBox = document.getElementById("chatBox");
+
+            chatBox.innerHTML += `
+
+        <div class="bot-message">
+            ${text}
+        </div>
+
+    `;
+
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function addUserMessage(text) {
+
+            let chatBox = document.getElementById("chatBox");
+
+            chatBox.innerHTML += `
+
+        <div class="user-message">
+            ${text}
+        </div>
+
+    `;
+
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function showTyping() {
+
+            let chatBox = document.getElementById("chatBox");
+
+            let typing = document.createElement("div");
+
+            typing.className = "typing";
+
+            typing.id = "typing";
+
+            typing.innerHTML = "CareMateAI is typing...";
+
+            chatBox.appendChild(typing);
+
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function removeTyping() {
+
+            let typing = document.getElementById("typing");
+
+            if (typing) {
+
+                typing.remove();
+            }
+        }
+
+        function sendMessage() {
+
+            if (finished) {
+
+                return;
+            }
+
+            let input = document.getElementById("userInput");
+
+            let text = input.value.trim();
+
+            if (text === "") {
+
+                return;
+            }
+
+            addUserMessage(text);
+
+            input.value = "";
+
+            showTyping();
+
+            setTimeout(() => {
+
+                removeTyping();
+
+                let lowerText = text.toLowerCase();
+
+                // NO SYMPTOMS
+
+                if (
+                    lowerText.includes("nothing") ||
+                    lowerText.includes("fine") ||
+                    lowerText.includes("normal")
+                ) {
+
+                    addBotMessage(
+
+                        "That's good to hear 😊 Still, let me ask a few quick health questions."
+
+                    );
+                }
+
+                // FEVER
+
+                else if (lowerText.includes("fever")) {
+
+                    addBotMessage(
+
+                        "I understand 🤒 Since when are you having fever?"
+
+                    );
+                }
+
+                // COUGH
+
+                else if (lowerText.includes("cough")) {
+
+                    addBotMessage(
+
+                        "Okay 👍 Is the cough dry or with mucus?"
+
+                    );
+                }
+
+                // HEADACHE
+
+                else if (lowerText.includes("headache")) {
+
+                    addBotMessage(
+
+                        "Is your headache mild, moderate or severe?"
+
+                    );
+                }
+
+                // CHEST PAIN
+
+                else if (lowerText.includes("chest")) {
+
+                    addBotMessage(
+
+                        "Chest pain should not be ignored 💙 Is it sharp pain or pressure?"
+
+                    );
+                }
+
+                // BREATHING
+
+                else if (lowerText.includes("breath")) {
+
+                    addBotMessage(
+
+                        "Are you facing breathing difficulty while walking or resting?"
+
+                    );
+                }
+
+                // VOMITING
+
+                else if (lowerText.includes("vomit")) {
+
+                    addBotMessage(
+
+                        "How many times did vomiting happen today?"
+
+                    );
+                }
+
+                // BODY PAIN
+
+                else if (lowerText.includes("body pain")) {
+
+                    addBotMessage(
+
+                        "Are you also feeling weakness or tiredness?"
+                    );
+                }
+
+                // ASK NEXT QUESTION
+
+                if (step < questions.length) {
+
+                    setTimeout(() => {
+
+                        addBotMessage(
+
+                            questions[step]
+
+                        );
+
+                        step++;
+
+                    }, 1000);
+
+                }
+
+                // FINAL MESSAGE
+
+                else {
+
+                    finished = true;
+
+                    setTimeout(() => {
+
+                        addBotMessage(
+
+                            "Thank you for sharing your symptoms 💙<br><br>CareMateAI is analyzing your health condition now...<br><br>✨ Get well soon and take care of yourself 🌸"
+
+                        );
+
+                        // AUTO REPORT AFTER 3 SECONDS
+
+                        setTimeout(() => {
+
+                            window.location.href = "/final_report";
+
+                        }, 3000);
+
+                    }, 1500);
+
+                }
+
+            }, 1000);
+        }
+
+    </script>
+
+</body>
+
+</html>

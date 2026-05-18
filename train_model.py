@@ -1,33 +1,50 @@
 import pandas as pd
-from sklearn.model_selection import train_test_split
+import joblib
+
 from sklearn.ensemble import RandomForestClassifier
-import pickle
+from sklearn.preprocessing import LabelEncoder
 
-# LOAD DATASET
-data = pd.read_csv("dataset.csv")
+# SMALL DATASET
 
-# INPUTS
-X = data.drop("disease", axis=1)
+data = {
 
-# OUTPUT
-y = data["disease"]
+    'fever': [3,2,1,0,3],
+    'cough': [3,2,1,0,2],
+    'headache': [2,1,0,0,3],
+    'fatigue': [3,2,1,0,2],
+    'vomiting': [0,1,3,0,0],
+    'body_pain': [3,2,1,0,2],
+    'diarrhea': [0,0,3,0,0],
+    'breathing': [2,1,0,0,3],
+    'chest_pain': [0,0,0,3,2],
+    'loss_smell': [0,3,0,0,2],
+    'sore_throat': [3,2,1,0,2],
 
-# SPLIT
-X_train, X_test, y_train, y_test = train_test_split(
-    X,
-    y,
-    test_size=0.2,
-    random_state=42
-)
+    'disease': [
+        'Flu',
+        'Covid',
+        'Food Poisoning',
+        'Heart Disease',
+        'General Viral Infection'
+    ]
+}
 
-# MODEL
+df = pd.DataFrame(data)
+
+X = df.drop('disease', axis=1)
+
+y = df['disease']
+
+label_encoder = LabelEncoder()
+
+y_encoded = label_encoder.fit_transform(y)
+
 model = RandomForestClassifier()
 
-# TRAIN
-model.fit(X_train, y_train)
+model.fit(X, y_encoded)
 
-# SAVE MODEL
-with open("disease_model.pkl", "wb") as file:
-    pickle.dump(model, file)
+joblib.dump(model, 'disease_model.pkl')
 
-print("Model trained successfully!")
+joblib.dump(label_encoder, 'label_encoder.pkl')
+
+print("Model Trained Successfully!")
